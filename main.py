@@ -13,6 +13,12 @@ rele = machine.Pin(PIN_RELE, machine.Pin.OUT)
 led = machine.Pin(PIN_LED, machine.Pin.OUT)
 sensor = dht.DHT22(machine.Pin(PIN_SENSOR))
 
+global setpoint, periodo, modo, estado_rele
+estado_rele = 0
+setpoint = 25
+periodo = 5
+modo = 1
+
 # config MQTT
 config['server'] = BROKER
 config['ssid'] = SSID
@@ -45,6 +51,8 @@ async def conexion(client):
 async def mensajes(client):
     async for topic, msg, retained in client.queue:
         
+        global setpoint, periodo, modo, estado_rele
+
         mensaje = msg.decode()
         subtopic = topic.decode().split("/")[-1]
         print(f"Mensaje recibido: {subtopic} = {mensaje}")
@@ -67,11 +75,11 @@ async def mensajes(client):
 
 # parpadear led
 async def destellar_led():
-    for _ in range(5):
+    for _ in range(10):
         led.on()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.2)
         led.off()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.2)
 
 async def main(client):
     
@@ -79,12 +87,6 @@ async def main(client):
 
     asyncio.create_task(conexion(client))   
     asyncio.create_task(mensajes(client))  
-
-    global setpoint, periodo, modo, estado_rele
-    estado_rele = 0
-    setpoint = 25
-    periodo = 5
-    modo = 1
 
     while True:
 
