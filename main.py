@@ -1,9 +1,8 @@
 from mqtt_as import MQTTClient, config
 import asyncio
 import json
-import machine, dht
-#import btree
-from settings import SSID, password, BROKER, DEVICE_ID  
+import machine, dht, network, time
+from settings import SSID, password, BROKER  
 
 PIN_SENSOR = 15
 PIN_RELE = 6
@@ -11,33 +10,41 @@ PIN_LED = 9
 
 rele = machine.Pin(PIN_RELE, machine.Pin.OUT)
 led = machine.Pin(PIN_LED, machine.Pin.OUT)
-sensor = dht.DHT22(machine.Pin(PIN_SENSOR))
+sensor = dht.DHT11(machine.Pin(PIN_SENSOR))
 
-global setpoint, periodo, modo, estado_rele
-estado_rele = 0
+global setpoint, periodo, modo, estado_rele, temperatura
 setpoint = 25
-periodo = 5
+periodo = 10
 modo = 1
+estado_rele = 0
+
+# Obtener ID único
+id = "".join("{:02X}".format(b) for b in machine.unique_id())
+
+# Conexión WiFi
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.connect(SSID, password)
+
+print("Conectando a WiFi...")
+max_wait = 10
+while max_wait > 0:
+    if wlan.status() < 0 or wlan.status() >= 3:
+        break
+    max_wait -= 1
+    print("Esperando conexion...")
+    time.sleep(1)
+
+if wlan.status() != 3:
+    raise RuntimeError("Error en la conexion de red")
+else:
+    print("Conectado a WiFi")
+    print("Direccion IP:", wlan.ifconfig()[0])
 
 # config MQTT
 config['server'] = BROKER
 config['ssid'] = SSID
 config['wifi_pw'] = password
-
-# almacenamiento no volátil 
-# try:
-#     db_file = open("config.db", "r+b")
-# except OSError:
-#     db_file = open("config.db", "w+b")
-
-# db = btree.open(db_file)
-
-# función para leer valores almacenados o asignar por defecto
-# def get_param(key, default):
-#     try:
-#         return float(db[key]) if key in db else default
-#     except ValueError:
-#         return default
 
 # manejo de conexion y subscripciones
 async def conexion(client):
@@ -45,7 +52,7 @@ async def conexion(client):
         await client.up.wait()
         client.up.clear()
         for sub in ["setpoint", "periodo", "destello", "modo", "rele"]:
-            await client.subscribe(f"{DEVICE_ID}/{sub}", 1)
+            await client.subscribe(f"{id}/{sub}", 1)
 
 #recepcion de mensajes
 async def mensajes(client):
@@ -59,19 +66,27 @@ async def mensajes(client):
 
         if subtopic == "setpoint":
             setpoint = float(mensaje)
+            asyncio.create_task(control_rele()) 
         
         elif subtopic == "periodo":
             periodo = int(mensaje)
              
         elif subtopic == "modo":
             modo = int(mensaje)
-        
+            asyncio.create_task(control_rele()) 
+
         elif subtopic == "rele":
             estado_rele = int(mensaje)
+            asyncio.create_task(control_rele())
 
         elif subtopic == "destello":
-            asyncio.create_task(destellar_led())
+            asyncio.create_task(destellar_led())    
 
+async def control_rele():
+    if modo == 1:  # Automático
+        rele.value(temperatura >= setpoint)
+    else:  # Manual
+        rele.value(estado_rele)
 
 # parpadear led
 async def destellar_led():
@@ -87,9 +102,11 @@ async def main(client):
 
     asyncio.create_task(conexion(client))   
     asyncio.create_task(mensajes(client))  
+    asyncio.create_task(control_rele())
+
+    global temperatura
 
     while True:
-
         try:
             sensor.measure()
             temperatura = sensor.temperature()
@@ -108,13 +125,7 @@ async def main(client):
             "modo": modo
         }
 
-        await client.publish(DEVICE_ID, json.dumps(data), qos=1)
-
-        if modo == 1:   # automático
-            rele.value(temperatura >= setpoint)
-        else:           # manual
-            rele.value(estado_rele)
-
+        await client.publish(id, json.dumps(data), qos=1)
         await asyncio.sleep(periodo)
 
 
