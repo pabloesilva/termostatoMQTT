@@ -4,14 +4,12 @@ import ujson as json
 import machine, dht, network, time
 from settings import SSID, password, BROKER  
 
-PIN_SENSOR = 15
-PIN_RELE = 6
-PIN_LED = 9  
+#asignacion de pines
+rele = machine.Pin(6, machine.Pin.OUT)
+led = machine.Pin(9, machine.Pin.OUT)
+sensor = dht.DHT11(machine.Pin(15))
 
-rele = machine.Pin(PIN_RELE, machine.Pin.OUT)
-led = machine.Pin(PIN_LED, machine.Pin.OUT)
-sensor = dht.DHT11(machine.Pin(PIN_SENSOR))
-
+#variables globales 
 global setpoint, periodo, modo, estado_rele, temperatura
 
 CONFIG_FILE = "config.json"
@@ -119,7 +117,7 @@ async def mensajes(client):
 
 async def control_rele():
     if modo == 1:  # Automático
-        rele.value(temperatura >= setpoint)
+        rele.value(temperatura > setpoint)
     else:  # Manual
         rele.value(estado_rele)
 
