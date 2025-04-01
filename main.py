@@ -1,6 +1,6 @@
 from mqtt_as import MQTTClient, config
 import asyncio
-import json
+import ujson as json
 import machine, dht, network, time
 from settings import SSID, password, BROKER  
 
@@ -13,13 +13,42 @@ led = machine.Pin(PIN_LED, machine.Pin.OUT)
 sensor = dht.DHT11(machine.Pin(PIN_SENSOR))
 
 global setpoint, periodo, modo, estado_rele, temperatura
-setpoint = 25
-periodo = 10
-modo = 1
-estado_rele = 0
+
+CONFIG_FILE = "config.json"
+
+async def guardar_config():
+    try:
+        data = {
+            "setpoint": setpoint,
+            "periodo": periodo,
+            "modo": modo,
+            "estado_rele": estado_rele
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(data, f)
+        print("Configuracion guardada correctamente.")
+    except Exception as e:
+        print(f"Error al guardar configuracion: {e}")
+
+async def cargar_config():
+    global setpoint, periodo, modo, estado_rele
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            data = json.load(f)
+            setpoint = data.get("setpoint", 25)
+            periodo = data.get("periodo", 10)
+            modo = data.get("modo", 1)
+            estado_rele = data.get("estado_rele", 0)
+        print("Configuracion cargada correctamente.")
+    except (OSError, ValueError) as e:
+        print(f"Error al cargar configuracion: {e}")
+        setpoint, periodo, modo, estado_rele = 25, 10, 1, 0
+        asyncio.create_task(guardar_config())
 
 # Obtener ID único
 id = "".join("{:02X}".format(b) for b in machine.unique_id())
+
+asyncio.create_task(cargar_config())
 
 # Conexión WiFi
 wlan = network.WLAN(network.STA_IF)
@@ -66,21 +95,27 @@ async def mensajes(client):
 
         if subtopic == "setpoint":
             setpoint = float(mensaje)
-            asyncio.create_task(control_rele()) 
+            asyncio.create_task(control_rele())
+            asyncio.create_task(guardar_config()) 
         
         elif subtopic == "periodo":
             periodo = int(mensaje)
+            asyncio.create_task(guardar_config())
              
         elif subtopic == "modo":
             modo = int(mensaje)
             asyncio.create_task(control_rele()) 
-
+            asyncio.create_task(guardar_config())
+        
         elif subtopic == "rele":
             estado_rele = int(mensaje)
             asyncio.create_task(control_rele())
-
+            asyncio.create_task(guardar_config())
+        
         elif subtopic == "destello":
-            asyncio.create_task(destellar_led())    
+            asyncio.create_task(destellar_led())
+    
+   
 
 async def control_rele():
     if modo == 1:  # Automático
@@ -101,7 +136,7 @@ async def main(client):
     await client.connect()
 
     asyncio.create_task(conexion(client))   
-    asyncio.create_task(mensajes(client))  
+    asyncio.create_task(mensajes(client))
     asyncio.create_task(control_rele())
 
     global temperatura
@@ -138,4 +173,3 @@ try:
     asyncio.run(main(client))
 finally:
     client.close()
-
