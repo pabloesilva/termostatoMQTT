@@ -949,3 +949,4 @@ class MQTTClient(MQTT_base):
             except OSError:
                 pass
             self._reconnect()  # Broker or WiFi fail.
+

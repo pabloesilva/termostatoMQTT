@@ -92,21 +92,33 @@ async def mensajes(client):
         print(f"Mensaje recibido: {subtopic} = {mensaje}")
 
         if subtopic == "setpoint":
-            setpoint = float(mensaje)
+            try: 
+                setpoint = float(mensaje)
+            except:
+                print("Error en el tipo de la variable. Espera un flotante.")
             asyncio.create_task(control_rele())
             asyncio.create_task(guardar_config()) 
         
         elif subtopic == "periodo":
-            periodo = int(mensaje)
+            try:
+                periodo = int(mensaje)
+            except:
+                print("Error en el tipo de la variable. Espera un entero.")
             asyncio.create_task(guardar_config())
              
         elif subtopic == "modo":
-            modo = int(mensaje)
+            try:
+                modo = int(mensaje)
+            except:
+                print("Error en el tipo de la variable. Espera un entero.") 
             asyncio.create_task(control_rele()) 
             asyncio.create_task(guardar_config())
         
         elif subtopic == "rele":
-            estado_rele = int(mensaje)
+            try:
+                estado_rele = int(mensaje)
+            except:
+                print("Error en el tipo de la variable. Espera un entero.") 
             asyncio.create_task(control_rele())
             asyncio.create_task(guardar_config())
         
@@ -161,10 +173,9 @@ async def main(client):
         await client.publish(id, json.dumps(data), qos=1)
         await asyncio.sleep(periodo)
 
-
 # Configurar MQTT
 config["queue_len"] = 1  # Use event interface with default queue size
-MQTTClient.DEBUG = False  # Optional: print diagnostic messages
+MQTTClient.DEBUG = True  # Optional: print diagnostic messages
 client = MQTTClient(config)
 
 try:
