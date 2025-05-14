@@ -114,9 +114,9 @@ async def mensajes(client):
 
         if subtopic == "setpoint":
             try: 
-                setpoint = float(mensaje)
+                setpoint = int(mensaje)
             except:
-                print("Error en el tipo de la variable. Espera un flotante.")
+                print("Error en el tipo de la variable. Espera un entero.")
             asyncio.create_task(control_rele())
             asyncio.create_task(guardar_config()) 
         
@@ -145,6 +145,8 @@ async def mensajes(client):
         
         elif subtopic == "destello":
             asyncio.create_task(destellar_led())
+
+        asyncio.create_task(display())
     
 
 async def control_rele():
@@ -164,7 +166,6 @@ async def destellar_led():
 
 
 async def display():
-
     lcd.move_to(0, 0)
     lcd.putstr("T:"+str(temperatura))
     lcd.move_to(4, 0)
@@ -173,10 +174,22 @@ async def display():
     lcd.putstr("C  Hum:"+str(humedad)+"%")
     lcd.move_to(0, 1)
     if (modo): 
-        lcd.putstr("S:"+str(setpoint)+" P:"+str(periodo)+" Auto")
+        lcd.putstr("S="+str(setpoint))
+        lcd.move_to(4, 1)
+        lcd.putchar(chr(0))
+        lcd.move_to(5, 1) 
+        lcd.putstr("C P="+str(periodo)+" Auto")
     else:
-        lcd.putstr("S:"+str(setpoint)+" P:"+str(periodo)+" R:"+str(estado_rele))
-
+        lcd.putstr("S="+str(setpoint))
+        lcd.move_to(4, 1)
+        lcd.putchar(chr(0))
+        lcd.move_to(5, 1)
+        if periodo<10: 
+            lcd.putstr("C P="+str(periodo)+" R="+str(estado_rele)+"  ")
+        elif periodo<100: 
+            lcd.putstr("C P="+str(periodo)+" R="+str(estado_rele)+" ")
+        else:
+            lcd.putstr("C P="+str(periodo)+" R="+str(estado_rele))
 
 
 
@@ -211,7 +224,7 @@ async def main(client):
             "modo": modo
         }
 
-        await display()
+        asyncio.create_task(display())
 
         await client.publish(id, json.dumps(data), qos=1)
         await asyncio.sleep(periodo)
