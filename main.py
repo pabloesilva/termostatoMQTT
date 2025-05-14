@@ -2,31 +2,44 @@ from mqtt_as import MQTTClient, config
 import asyncio
 import ujson as json
 import machine, dht, network, time
-from settings import SSID, password, BROKER  
+from settings import SSID, password, BROKER, MQTT_USR, MQTT_PASS  
 
 #asignacion de pines
 rele = machine.Pin(6, machine.Pin.OUT)
 led = machine.Pin(9, machine.Pin.OUT)
 sensor = dht.DHT11(machine.Pin(15))
 
+
+from machine import I2C
+from lcd_api import LcdApi
+from pico_i2c_lcd import I2cLcd
+
+I2C_ADDR     = 0x3f
+I2C_NUM_ROWS = 2
+I2C_NUM_COLS = 16
+
+i2c = I2C(0, sda=machine.Pin(0), scl=machine.Pin(1), freq=400000)
+lcd = I2cLcd(i2c, I2C_ADDR, I2C_NUM_ROWS, I2C_NUM_COLS)    
+#lcd.putstr("It Works!")
+lcd.custom_char(0, bytearray([  0x0E, 0x0A, 0x0E, 0x00, 0x00, 0x00, 0x00, 0x00])) 
+
+
 #variables globales 
-global setpoint, periodo, modo, estado_rele, temperatura
+global setpoint, periodo, modo, estado_rele, temperatura, humedad
+
+# credenciales para el broker MQTT
+config['server'] = BROKER
+config['port'] = 23814
+config['ssl'] = True
+config['ssid'] = SSID
+config['wifi_pw'] = password
+config['user'] = MQTT_USR
+config['password'] = MQTT_PASS
+
+# Obtener ID único
+id = "".join("{:02X}".format(b) for b in machine.unique_id())
 
 CONFIG_FILE = "config.json"
-
-async def guardar_config():
-    try:
-        data = {
-            "setpoint": setpoint,
-            "periodo": periodo,
-            "modo": modo,
-            "estado_rele": estado_rele
-        }
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(data, f)
-        print("Configuracion guardada correctamente.")
-    except Exception as e:
-        print(f"Error al guardar configuracion: {e}")
 
 async def cargar_config():
     global setpoint, periodo, modo, estado_rele
@@ -43,10 +56,21 @@ async def cargar_config():
         setpoint, periodo, modo, estado_rele = 25, 10, 1, 0
         asyncio.create_task(guardar_config())
 
-# Obtener ID único
-id = "".join("{:02X}".format(b) for b in machine.unique_id())
-
 asyncio.create_task(cargar_config())
+
+async def guardar_config():
+    try:
+        data = {
+            "setpoint": setpoint,
+            "periodo": periodo,
+            "modo": modo,
+            "estado_rele": estado_rele
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(data, f)
+        print("Configuracion guardada correctamente.")
+    except Exception as e:
+        print(f"Error al guardar configuracion: {e}")
 
 # Conexión WiFi
 wlan = network.WLAN(network.STA_IF)
@@ -68,10 +92,6 @@ else:
     print("Conectado a WiFi")
     print("Direccion IP:", wlan.ifconfig()[0])
 
-# config MQTT
-config['server'] = BROKER
-config['ssid'] = SSID
-config['wifi_pw'] = password
 
 # manejo de conexion y subscripciones
 async def conexion(client):
@@ -80,6 +100,7 @@ async def conexion(client):
         client.up.clear()
         for sub in ["setpoint", "periodo", "destello", "modo", "rele"]:
             await client.subscribe(f"{id}/{sub}", 1)
+
 
 #recepcion de mensajes
 async def mensajes(client):
@@ -125,13 +146,13 @@ async def mensajes(client):
         elif subtopic == "destello":
             asyncio.create_task(destellar_led())
     
-   
 
 async def control_rele():
     if modo == 1:  # Automático
         rele.value(temperatura > setpoint)
     else:  # Manual
         rele.value(estado_rele)
+
 
 # parpadear led
 async def destellar_led():
@@ -141,6 +162,25 @@ async def destellar_led():
         led.off()
         await asyncio.sleep(0.2)
 
+
+async def display():
+
+    lcd.move_to(0, 0)
+    lcd.putstr("T:"+str(temperatura))
+    lcd.move_to(4, 0)
+    lcd.putchar(chr(0))
+    lcd.move_to(5, 0) 
+    lcd.putstr("C  Hum:"+str(humedad)+"%")
+    lcd.move_to(0, 1)
+    if (modo): 
+        lcd.putstr("S:"+str(setpoint)+" P:"+str(periodo)+" Auto")
+    else:
+        lcd.putstr("S:"+str(setpoint)+" P:"+str(periodo)+" R:"+str(estado_rele))
+
+
+
+
+
 async def main(client):
     
     await client.connect()
@@ -149,9 +189,10 @@ async def main(client):
     asyncio.create_task(mensajes(client))
     asyncio.create_task(control_rele())
 
-    global temperatura
+    global temperatura, humedad
 
     while True:
+        
         try:
             sensor.measure()
             temperatura = sensor.temperature()
@@ -170,6 +211,8 @@ async def main(client):
             "modo": modo
         }
 
+        await display()
+
         await client.publish(id, json.dumps(data), qos=1)
         await asyncio.sleep(periodo)
 
@@ -177,6 +220,10 @@ async def main(client):
 config["queue_len"] = 1  # Use event interface with default queue size
 MQTTClient.DEBUG = True  # Optional: print diagnostic messages
 client = MQTTClient(config)
+
+
+
+
 
 try:
     asyncio.run(main(client))
