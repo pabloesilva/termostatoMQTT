@@ -9,7 +9,7 @@ Está diseñado para integrarse con un bot de Telegram que permite la visualizac
 - **Medición de temperatura y humedad**: Utiliza sensores digitales (como DHT22) para obtener lecturas precisas del ambiente.
 - **Comunicación MQTT**: Publica los datos recopilados en formato JSON a un broker MQTT, facilitando la integración con otros sistemas.
 - **Control de relé**: Permite el control de dispositivos externos (como sistemas de calefacción o ventilación) mediante comandos recibidos por MQTT.
-- **Configuración flexible**: Los parámetros de operación se definen en un archivo `config.json`, permitiendo ajustes sin modificar el código fuente.
+- **Configuración flexible**: Los parámetros de operación se definen en un archivo `Settings.py`, permitiendo ajustes sin modificar el código fuente.
 - **Compatibilidad con MicroPython**: El código está escrito en MicroPython, optimizado para microcontroladores como la Raspberry Pi Pico W.
 
 ## Requisitos
@@ -32,10 +32,10 @@ Está diseñado para integrarse con un bot de Telegram que permite la visualizac
    - Instalar MicroPython en la placa siguiendo las instrucciones oficiales.
 
 2. **Configurar el entorno de desarrollo**
-   - Utilizar un editor compatible con MicroPython (como Thonny) para cargar los archivos del proyecto en la Raspberry Pi Pico W.
+   - Utilizar un editor compatible con MicroPython para cargar los archivos del proyecto en la Raspberry Pi Pico W.
 
-3. **Configurar `config.json`**
-   - Editar el archivo `config.json` con los parámetros específicos de tu red y broker MQTT:
+3. **Configurar `Settings.py`**
+   - Crear y editar el archivo `Settings.py` con los parámetros específicos de tu red y broker MQTT:
 
      ```json
      {
@@ -53,7 +53,7 @@ Está diseñado para integrarse con un bot de Telegram que permite la visualizac
      ```
 
 4. **Subir los archivos al dispositivo**
-   - Cargar `main.py`, `config.json` y cualquier otro archivo necesario al sistema de archivos de la Raspberry Pi Pico W.
+   - Cargar los archivos a la memoria de la Raspberry Pi Pico W.
 
 5. **Ejecutar el programa**
    - Reiniciar la Raspberry Pi Pico W para que comience la ejecución de `main.py`.
