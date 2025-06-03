@@ -37,19 +37,12 @@ Está diseñado para integrarse con un bot de Telegram que permite la visualizac
 3. **Configurar `Settings.py`**
    - Crear y editar el archivo `Settings.py` con los parámetros específicos de tu red y broker MQTT:
 
-     ```json
-     {
-       "wifi_ssid": "NOMBRE_DE_TU_RED_WIFI",
-       "wifi_password": "CONTRASEÑA_DE_TU_RED_WIFI",
-       "mqtt_broker": "DIRECCIÓN_DEL_BROKER_MQTT",
-       "mqtt_port": 1883,
-       "mqtt_user": "USUARIO_MQTT",
-       "mqtt_password": "CONTRASEÑA_MQTT",
-       "mqtt_topic": "TOPICO/DE/PUBLICACION",
-       "sensor_type": "DHT22",
-       "sensor_pin": 4,
-       "relay_pin": 5
-     }
+     ```Python
+     SSID="RedWIFI"
+     password="contraseñaWIFI"
+     BROKER="servidor.servidor.servidor"
+     MQTT_USR="usuarioMQTT"
+     MQTT_PASS="contraseñaMQTT"
      ```
 
 4. **Subir los archivos al dispositivo**
